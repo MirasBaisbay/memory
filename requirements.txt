@@ -1,0 +1,32 @@
+# WALL-E TensorRT-LLM Requirements
+# For NVIDIA Jetson Orin Nano with JetPack 6.1+
+
+# Core dependencies
+numpy>=1.24.0
+torch>=2.0.0  # Should be installed via JetPack
+
+# TensorRT-LLM (Install from NVIDIA's Jetson-specific wheel)
+# tensorrt-llm==0.12.0  # Install manually from NVIDIA
+
+# Transformers for tokenizers and model handling
+transformers>=4.35.0
+accelerate>=0.24.0
+
+# Embeddings (Lightweight for Jetson)
+sentence-transformers>=2.2.0
+
+# OpenAI SDK (for compatibility layer)
+openai>=1.3.0
+
+# Web search
+duckduckgo-search>=4.0.0
+
+# Serial communication for robot control
+pyserial>=3.5
+
+# Database
+# SQLite3 is built into Python, no installation needed
+
+# Optional but recommended for development
+# jupyter  # For interactive development
+# ipython  # Better REPL
