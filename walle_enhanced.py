@@ -1,6 +1,7 @@
 """
-WALL-E v2.6 - Stable Single Brain (No Routing)
-Features: Streaming, Metrics, Robust Search, Context
+WALL-E v3.0 - TensorRT-LLM Backend
+Features: TensorRT-LLM for Jetson Orin, Streaming, Metrics, Robust Search, Context
+Optimized for NVIDIA Jetson Orin Nano (8GB VRAM)
 """
 import json
 import re
@@ -8,7 +9,6 @@ import time
 import sys
 from collections import deque
 from datetime import datetime
-from openai import OpenAI
 
 from config import conf
 
@@ -21,16 +21,35 @@ from heartbeat import HeartbeatManager, add_heartbeat_to_tools
 from knowledge_tools import get_knowledge_tools, KnowledgeToolExecutor
 from context_manager import ContextManager, EnvironmentContext, InteractionContext, SensorSimulator
 
-# Initialize Client
-client = OpenAI(base_url=f"{conf.OLLAMA_BASE_URL}/v1", api_key="ollama")
+# Initialize Client based on backend
+if conf.BACKEND == "tensorrt-llm":
+    from tensorrt_client import TensorRTOpenAI
+    print(f"🚀 Initializing TensorRT-LLM backend...")
+    client = TensorRTOpenAI(
+        engine_dir=conf.MODEL_PATH,
+        tokenizer_dir=conf.TOKENIZER_PATH,
+        max_input_len=conf.MAX_INPUT_LEN,
+        max_output_len=conf.MAX_OUTPUT_LEN,
+        max_batch_size=conf.MAX_BATCH_SIZE,
+        max_beam_width=conf.MAX_BEAM_WIDTH,
+        enable_streaming=conf.STREAMING_LLM,
+        gpu_memory_fraction=conf.GPU_MEMORY_FRACTION,
+    )
+    MODEL_NAME = conf.MODEL_NAME
+else:
+    # Fallback to Ollama
+    from openai import OpenAI
+    print(f"🔄 Using Ollama backend (fallback)...")
+    client = OpenAI(base_url=f"{conf.OLLAMA_BASE_URL}/v1", api_key="ollama")
+    MODEL_NAME = conf.OLLAMA_MODEL
 
 # Initialize Systems
 core_mem = Memory()
-recall_mem = RecallMemory()
-archival_mem = ArchivalMemory()
+recall_mem = RecallMemory(use_semantic=conf.USE_SEMANTIC_SEARCH)
+archival_mem = ArchivalMemory(use_semantic=conf.USE_SEMANTIC_SEARCH)
 mem_exec = MemoryToolExecutor(core_mem, recall_mem, archival_mem)
 personality = PersonalityEngine.load()
-robot = RobotControlExecutor(serial_port=conf.SERIAL_PORT)
+robot = RobotControlExecutor(serial_port=conf.SERIAL_PORT, baud_rate=conf.BAUD_RATE)
 heartbeat = HeartbeatManager()
 knowledge_exec = KnowledgeToolExecutor()
 context_manager = ContextManager()
@@ -66,7 +85,7 @@ class PerformanceTimer:
 def summarize_text(text: str) -> str:
     try:
         resp = client.chat.completions.create(
-            model=conf.MODEL_NAME,
+            model=MODEL_NAME,
             messages=[{"role": "user", "content": f"Summarize this concisely:\n{text}"}],
             max_tokens=200
         )
@@ -129,7 +148,7 @@ def stream_chat_response(messages, tools, max_retries=2):
             timer.start() 
             
             stream = client.chat.completions.create(
-                model=conf.MODEL_NAME, # Uses the single model from config
+                model=MODEL_NAME,
                 messages=messages,
                 tools=tools,
                 tool_choice="auto",
@@ -260,23 +279,34 @@ def chat(user_input: str):
         break
 
 def main():
-    print("🤖 WALL-E Online v2.6 (Stable Single-Brain)")
-    
+    backend_info = f"TensorRT-LLM ({conf.MODEL_NAME})" if conf.BACKEND == "tensorrt-llm" else f"Ollama ({conf.OLLAMA_MODEL})"
+    print(f"🤖 WALL-E Online v3.0 - {backend_info}")
+    print(f"   Memory: {'Semantic' if conf.USE_SEMANTIC_SEARCH else 'Text'} Search | Embedding: {conf.EMBEDDING_MODEL}")
+
     if not conf.validate():
-        print("⚠️ System checks failed. Please check config.py or run 'ollama serve'")
+        backend_name = "TensorRT-LLM model" if conf.BACKEND == "tensorrt-llm" else "Ollama"
+        print(f"⚠️ System checks failed. Please check {backend_name} configuration.")
         x = input("Continue anyway? (y/n): ")
         if x.lower() != 'y': return
 
     context_manager.update_environment(SensorSimulator.simulate_environment_context())
     
-    while True:
-        try:
-            u = input("\nYou: ").strip()
-            if not u: continue
-            if u.lower() in ['exit', 'quit']: break
-            chat(u)
-        except KeyboardInterrupt:
-            break
+    try:
+        while True:
+            try:
+                u = input("\nYou: ").strip()
+                if not u: continue
+                if u.lower() in ['exit', 'quit']:
+                    print("\n👋 Shutting down WALL-E...")
+                    break
+                chat(u)
+            except KeyboardInterrupt:
+                print("\n\n👋 Keyboard interrupt received. Shutting down...")
+                break
+    finally:
+        # Cleanup resources
+        robot.close()
+        print("✅ WALL-E shutdown complete")
 
 if __name__ == "__main__":
     main()

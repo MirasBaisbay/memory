@@ -1,33 +1,90 @@
 """
 MemGPT-inspired memory system for WALL-E robot
-Refactored for robustness, Ollama embeddings, and proper resource management.
+Refactored for robustness, sentence-transformers embeddings, and proper resource management.
+Optimized for NVIDIA Jetson Orin Nano.
 """
 
 import json
 import sqlite3
-import requests
 import numpy as np
 from datetime import datetime
 from typing import List, Dict, Optional, Any, Callable
 from dataclasses import dataclass, field
 
-# Configuration for Ollama Embeddings
-OLLAMA_BASE_URL = "http://localhost:11434"
-EMBEDDING_MODEL = "nomic-embed-text"  # Ensure you run: ollama pull nomic-embed-text
+# Configuration for Embeddings (Optimized for Jetson)
+from config import conf
 
-def get_ollama_embedding(text: str) -> bytes:
-    """Fetch embedding from Ollama API to save RAM"""
+# Lazy load embedding model to save memory
+_embedding_model = None
+_embedding_device = None
+
+def get_embedding_model():
+    """Lazy load sentence-transformer model"""
+    global _embedding_model, _embedding_device
+
+    if _embedding_model is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            import torch
+
+            # Determine device
+            _embedding_device = conf.EMBEDDING_DEVICE if torch.cuda.is_available() else "cpu"
+
+            print(f"🔧 Loading embedding model: {conf.EMBEDDING_MODEL} on {_embedding_device}...")
+            _embedding_model = SentenceTransformer(
+                conf.EMBEDDING_MODEL,
+                device=_embedding_device
+            )
+
+            # Optimize for inference
+            if _embedding_device == "cuda":
+                _embedding_model.half()  # Use FP16 for GPU efficiency
+
+            print(f"✅ Embedding model loaded")
+
+        except ImportError:
+            print("⚠️ sentence-transformers not installed. Embeddings disabled.")
+            print("   Install with: pip install sentence-transformers")
+            return None
+        except Exception as e:
+            print(f"⚠️ Failed to load embedding model: {e}")
+            return None
+
+    return _embedding_model
+
+def get_embedding(text: str) -> Optional[bytes]:
+    """
+    Generate embedding using sentence-transformers.
+
+    Args:
+        text: Text to embed
+
+    Returns:
+        Embedding as bytes, or None if failed
+    """
+    model = get_embedding_model()
+    if model is None:
+        return None
+
     try:
-        resp = requests.post(
-            f"{OLLAMA_BASE_URL}/api/embeddings",
-            json={"model": EMBEDDING_MODEL, "prompt": text}
+        # Generate embedding
+        embedding = model.encode(
+            text,
+            convert_to_tensor=True,
+            show_progress_bar=False,
+            normalize_embeddings=True  # Normalize for cosine similarity
         )
-        if resp.status_code == 200:
-            vector = resp.json().get('embedding')
-            return np.array(vector, dtype=np.float32).tobytes()
+
+        # Convert to numpy and bytes
+        if _embedding_device == "cuda":
+            embedding = embedding.cpu()
+
+        embedding_np = embedding.numpy().astype(np.float32)
+        return embedding_np.tobytes()
+
     except Exception as e:
         print(f"⚠️ Embedding error: {e}")
-    return None
+        return None
 
 @dataclass
 class Block:
@@ -157,7 +214,7 @@ class RecallMemory:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON recall_memory(timestamp DESC)")
 
     def insert(self, role: str, content: str, tools_used: List[str] = None, metadata: Dict = None):
-        embedding = get_ollama_embedding(content) if self.use_semantic else None
+        embedding = get_embedding(content) if self.use_semantic else None
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("INSERT INTO recall_memory (role, content, tools_used, metadata, embedding) VALUES (?, ?, ?, ?, ?)",
                          (role, content, json.dumps(tools_used) if tools_used else None, 
@@ -166,7 +223,7 @@ class RecallMemory:
     def search(self, query: str = None, limit: int = 10) -> List[Dict]:
         with sqlite3.connect(self.db_path) as conn:
             if self.use_semantic and query:
-                q_emb = get_ollama_embedding(query)
+                q_emb = get_embedding(query)
                 if q_emb:
                     # Note: This is a naive Python-side cosine similarity for SQLite. 
                     # Production would use pgvector or sqlite-vss.
@@ -236,7 +293,7 @@ class ArchivalMemory:
                 category TEXT, content TEXT, importance INTEGER, metadata TEXT, embedding BLOB)""")
 
     def insert(self, category: str, content: str, importance: int = 5, metadata: Dict = None):
-        embedding = get_ollama_embedding(content) if self.use_semantic else None
+        embedding = get_embedding(content) if self.use_semantic else None
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("INSERT INTO archival_memory (category, content, importance, metadata, embedding) VALUES (?, ?, ?, ?, ?)",
                          (category, content, importance, json.dumps(metadata) if metadata else None, embedding))
