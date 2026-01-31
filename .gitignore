@@ -42,6 +42,10 @@ env/
 *.sqlite
 *.sqlite3
 
+# FAISS index files
+*.index
+*.index.ids
+
 # Model files (too large for git)
 models/
 *.engine
