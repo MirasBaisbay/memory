@@ -6,7 +6,7 @@ from pathlib import Path
 @dataclass
 class Config:
     # --- Backend Selection ---
-    BACKEND: Literal["tensorrt-llm", "ollama"] = "tensorrt-llm"
+    BACKEND: Literal["tensorrt-llm", "ollama"] = "ollama"  # Ollama recommended for easier setup
 
     # --- TensorRT-LLM Settings (for Jetson Orin Nano) ---
     # Model from HuggingFace: Qwen/Qwen3-4B-Instruct-2507-FP8
@@ -33,14 +33,25 @@ class Config:
     EMBEDDING_DEVICE: str = "cuda"  # Use GPU for embeddings
     EMBEDDING_BATCH_SIZE: int = 8
 
-    # --- Ollama Settings (Legacy/Fallback) ---
+    # --- Ollama Settings (Recommended Backend) ---
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "walle-brain"
+    OLLAMA_MODEL: str = "qwen3:4b"  # Best tool calling among small models
 
     # --- Memory Settings ---
-    MAX_CONTEXT_MESSAGES: int = 10  # Reduced for TensorRT-LLM memory constraints
+    MAX_CONTEXT_MESSAGES: int = 10  # Rolling context window
     USE_SEMANTIC_SEARCH: bool = True  # Enable with lightweight embeddings
-    RECALL_MEMORY_LIMIT: int = 40     # Reduced for faster processing
+    RECALL_MEMORY_LIMIT: int = 40     # Compress to archival after this limit
+
+    # --- FAISS Settings (Fast Vector Search) ---
+    USE_FAISS: bool = True                       # Enable FAISS for O(log n) search
+    FAISS_INDEX_PATH: str = "walle_faiss.index"  # Persistent index file
+    FAISS_DIMENSION: int = 384                   # all-MiniLM-L6-v2 output dimension
+    FAISS_REBUILD_THRESHOLD: int = 100           # Rebuild index after N insertions
+
+    # --- Importance Decay Settings ---
+    IMPORTANCE_DECAY_HALF_LIFE: float = 30.0     # Days until recency score halves
+    IMPORTANCE_STATIC_WEIGHT: float = 0.7        # Weight for static importance (0-1)
+    IMPORTANCE_RECENCY_WEIGHT: float = 0.3       # Weight for recency score (0-1)
 
     # --- Search Settings ---
     MAX_SEARCH_RESULTS: int = 5
