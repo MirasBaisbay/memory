@@ -375,11 +375,13 @@ class RecallMemory:
 
     def insert(self, role: str, content: str, tools_used: List[str] = None, metadata: Dict = None):
         embedding = get_embedding(content) if self.use_semantic else None
+        # Use Python timestamp for microsecond precision (SQLite CURRENT_TIMESTAMP is second-precision)
+        timestamp = datetime.now().isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "INSERT INTO recall_memory (role, content, tools_used, metadata, embedding) VALUES (?, ?, ?, ?, ?)",
-                (role, content, json.dumps(tools_used) if tools_used else None,
+                "INSERT INTO recall_memory (timestamp, role, content, tools_used, metadata, embedding) VALUES (?, ?, ?, ?, ?, ?)",
+                (timestamp, role, content, json.dumps(tools_used) if tools_used else None,
                  json.dumps(metadata) if metadata else None, embedding)
             )
             row_id = cursor.lastrowid
