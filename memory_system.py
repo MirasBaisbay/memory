@@ -553,9 +553,10 @@ class ArchivalMemory:
                             ids
                         ).fetchall()
 
-                    # Apply importance decay and return
-                    results = self._apply_importance_decay(rows)
-                    return results[:limit]
+                    # Only return if we found matching rows, otherwise fall back to text search
+                    if rows:
+                        results = self._apply_importance_decay(rows)
+                        return results[:limit]
 
         # Fallback: Text search with decay
         with sqlite3.connect(self.db_path) as conn:
