@@ -142,10 +142,18 @@ class TestRecallMemory(unittest.TestCase):
         """Create fresh recall memory with temp database"""
         self.temp_dir = tempfile.mkdtemp()
         self.db_path = os.path.join(self.temp_dir, "test_recall_memory.db")
+        
+        # ISOLATION FIX: Patch global config to use temp FAISS index
+        self.original_faiss_path = conf.FAISS_INDEX_PATH
+        conf.FAISS_INDEX_PATH = os.path.join(self.temp_dir, "test_recall.index")
+        
         self.recall = RecallMemory(db_path=self.db_path, use_semantic=True)
 
     def tearDown(self):
-        """Cleanup temp files"""
+        """Cleanup temp files and restore config"""
+        # Restore global config
+        conf.FAISS_INDEX_PATH = self.original_faiss_path
+        
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -222,10 +230,16 @@ class TestArchivalMemory(unittest.TestCase):
         """Create fresh archival memory with temp database"""
         self.temp_dir = tempfile.mkdtemp()
         self.db_path = os.path.join(self.temp_dir, "test_archival_memory.db")
+        
+        # ISOLATION FIX: Patch global config to use temp FAISS index
+        self.original_faiss_path = conf.FAISS_INDEX_PATH
+        conf.FAISS_INDEX_PATH = os.path.join(self.temp_dir, "test_archival.index")
+        
         self.archival = ArchivalMemory(db_path=self.db_path, use_semantic=True)
 
     def tearDown(self):
-        """Cleanup temp files"""
+        """Cleanup temp files and restore config"""
+        conf.FAISS_INDEX_PATH = self.original_faiss_path
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -409,9 +423,14 @@ class TestToolCalling(unittest.TestCase):
     def setUp(self):
         """Setup for tool calling tests"""
         self.temp_dir = tempfile.mkdtemp()
+        
+        # ISOLATION FIX
+        self.original_faiss_path = conf.FAISS_INDEX_PATH
+        conf.FAISS_INDEX_PATH = os.path.join(self.temp_dir, "test_tools.index")
 
     def tearDown(self):
         """Cleanup"""
+        conf.FAISS_INDEX_PATH = self.original_faiss_path
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -511,9 +530,14 @@ class TestSearchPerformance(unittest.TestCase):
     def setUp(self):
         """Setup test data"""
         self.temp_dir = tempfile.mkdtemp()
+        
+        # ISOLATION FIX
+        self.original_faiss_path = conf.FAISS_INDEX_PATH
+        conf.FAISS_INDEX_PATH = os.path.join(self.temp_dir, "test_perf.index")
 
     def tearDown(self):
         """Cleanup"""
+        conf.FAISS_INDEX_PATH = self.original_faiss_path
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -570,6 +594,10 @@ class TestIntegration(unittest.TestCase):
         self.core_db = os.path.join(self.temp_dir, "core.db")
         self.recall_db = os.path.join(self.temp_dir, "recall.db")
         self.archival_db = os.path.join(self.temp_dir, "archival.db")
+        
+        # ISOLATION FIX: Patch global config to use temp FAISS index
+        self.original_faiss_path = conf.FAISS_INDEX_PATH
+        conf.FAISS_INDEX_PATH = os.path.join(self.temp_dir, "test_integration.index")
 
         self.core = Memory(db_path=self.core_db)
         self.recall = RecallMemory(db_path=self.recall_db, use_semantic=True)
@@ -577,6 +605,7 @@ class TestIntegration(unittest.TestCase):
 
     def tearDown(self):
         """Cleanup"""
+        conf.FAISS_INDEX_PATH = self.original_faiss_path
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -611,6 +640,7 @@ class TestIntegration(unittest.TestCase):
         results = self.recall.search("Python", limit=2)
         self.assertGreater(len(results), 0)
 
+        # This previously failed due to FAISS index contamination across tests
         facts = self.archival.search("user name", limit=1)
         self.assertGreater(len(facts), 0)
         self.assertIn("Alex", facts[0]["content"])
@@ -624,7 +654,8 @@ class TestIntegration(unittest.TestCase):
         self.recall.insert("user", "I like dark mode")
         self.archival.insert("preference", "User prefers dark mode", importance=6)
 
-        # Simulate new session
+        # Simulate new session (reusing DBs, forcing index reload)
+        # Note: We keep the same temp index path to simulate restart with persistence
         new_core = Memory(db_path=self.core_db)
         new_recall = RecallMemory(db_path=self.recall_db, use_semantic=True)
         new_archival = ArchivalMemory(db_path=self.archival_db, use_semantic=True)
