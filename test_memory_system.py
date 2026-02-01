@@ -484,7 +484,7 @@ class TestToolCalling(unittest.TestCase):
             "importance": 7
         })
 
-        self.assertIn("stored", result.lower())
+        self.assertIn("saved", result.lower())
         self.assertEqual(archival.get_count(), 1)
 
     def test_tool_schema_format(self):
