@@ -422,7 +422,7 @@ class TestToolCalling(unittest.TestCase):
         db_path = os.path.join(self.temp_dir, "test_tools.db")
         memory = Memory(db_path=db_path)
 
-        executor = MemoryToolExecutor(memory, None)
+        executor = MemoryToolExecutor(memory, None, None)
         self.assertIsNotNone(executor)
 
     def test_core_memory_append_tool(self):
@@ -432,7 +432,7 @@ class TestToolCalling(unittest.TestCase):
         db_path = os.path.join(self.temp_dir, "test_tools.db")
         memory = Memory(db_path=db_path)
 
-        executor = MemoryToolExecutor(memory, None)
+        executor = MemoryToolExecutor(memory, None, None)
 
         result = executor.execute("core_memory_append", {
             "label": "human",
@@ -453,7 +453,7 @@ class TestToolCalling(unittest.TestCase):
         human = memory.get_block("human")
         human.value = "User likes coffee."
 
-        executor = MemoryToolExecutor(memory, None)
+        executor = MemoryToolExecutor(memory, None, None)
 
         result = executor.execute("core_memory_replace", {
             "label": "human",
@@ -476,7 +476,7 @@ class TestToolCalling(unittest.TestCase):
         memory = Memory(db_path=db_paths["core"])
         archival = ArchivalMemory(db_path=db_paths["archival"])
 
-        executor = MemoryToolExecutor(memory, archival)
+        executor = MemoryToolExecutor(memory, None, archival)
 
         result = executor.execute("archival_memory_insert", {
             "category": "preference",
@@ -492,7 +492,7 @@ class TestToolCalling(unittest.TestCase):
         from memory_tools import MemoryToolExecutor
 
         memory = Memory(db_path=os.path.join(self.temp_dir, "test.db"))
-        executor = MemoryToolExecutor(memory, None)
+        executor = MemoryToolExecutor(memory, None, None)
 
         tools = executor.get_tool_schemas()
 
