@@ -1,6 +1,6 @@
 """
-WALL-E v3.0 - TensorRT-LLM Backend
-Features: TensorRT-LLM for Jetson Orin, Streaming, Metrics, Robust Search, Context
+WALL-E v3.1 - Memory-Augmented Robot Brain
+Features: Ollama/Qwen3 Backend, FAISS Search, Importance Decay, Streaming
 Optimized for NVIDIA Jetson Orin Nano (8GB VRAM)
 """
 import json
@@ -21,27 +21,11 @@ from heartbeat import HeartbeatManager, add_heartbeat_to_tools
 from knowledge_tools import get_knowledge_tools, KnowledgeToolExecutor
 from context_manager import ContextManager, EnvironmentContext, InteractionContext, SensorSimulator
 
-# Initialize Client based on backend
-if conf.BACKEND == "tensorrt-llm":
-    from tensorrt_client import TensorRTOpenAI
-    print(f"🚀 Initializing TensorRT-LLM backend...")
-    client = TensorRTOpenAI(
-        engine_dir=conf.MODEL_PATH,
-        tokenizer_dir=conf.TOKENIZER_PATH,
-        max_input_len=conf.MAX_INPUT_LEN,
-        max_output_len=conf.MAX_OUTPUT_LEN,
-        max_batch_size=conf.MAX_BATCH_SIZE,
-        max_beam_width=conf.MAX_BEAM_WIDTH,
-        enable_streaming=conf.STREAMING_LLM,
-        gpu_memory_fraction=conf.GPU_MEMORY_FRACTION,
-    )
-    MODEL_NAME = conf.MODEL_NAME
-else:
-    # Fallback to Ollama
-    from openai import OpenAI
-    print(f"🔄 Using Ollama backend (fallback)...")
-    client = OpenAI(base_url=f"{conf.OLLAMA_BASE_URL}/v1", api_key="ollama")
-    MODEL_NAME = conf.OLLAMA_MODEL
+# Initialize Client - Ollama is the recommended backend
+from openai import OpenAI
+print(f"🚀 Initializing Ollama backend with {conf.OLLAMA_MODEL}...")
+client = OpenAI(base_url=f"{conf.OLLAMA_BASE_URL}/v1", api_key="ollama")
+MODEL_NAME = conf.OLLAMA_MODEL
 
 # Initialize Systems
 core_mem = Memory()
@@ -279,13 +263,13 @@ def chat(user_input: str):
         break
 
 def main():
-    backend_info = f"TensorRT-LLM ({conf.MODEL_NAME})" if conf.BACKEND == "tensorrt-llm" else f"Ollama ({conf.OLLAMA_MODEL})"
-    print(f"🤖 WALL-E Online v3.0 - {backend_info}")
+    print(f"🤖 WALL-E Online v3.1 - Ollama ({conf.OLLAMA_MODEL})")
     print(f"   Memory: {'Semantic' if conf.USE_SEMANTIC_SEARCH else 'Text'} Search | Embedding: {conf.EMBEDDING_MODEL}")
 
     if not conf.validate():
-        backend_name = "TensorRT-LLM model" if conf.BACKEND == "tensorrt-llm" else "Ollama"
-        print(f"⚠️ System checks failed. Please check {backend_name} configuration.")
+        print(f"⚠️ System checks failed. Please check Ollama configuration.")
+        print(f"   Make sure Ollama is running: ollama serve")
+        print(f"   And model is pulled: ollama pull {conf.OLLAMA_MODEL}")
         x = input("Continue anyway? (y/n): ")
         if x.lower() != 'y': return
 

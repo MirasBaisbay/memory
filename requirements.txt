@@ -1,25 +1,23 @@
-# WALL-E TensorRT-LLM Requirements
-# For NVIDIA Jetson Orin Nano with JetPack 6.1+
+# WALL-E v3.1 Requirements
+# For NVIDIA Jetson or any system with Ollama
 
 # Core dependencies
 numpy>=1.24.0
-torch>=2.0.0  # Should be installed via JetPack
 
-# TensorRT-LLM (Install from NVIDIA's Jetson-specific wheel)
-# tensorrt-llm==0.12.0  # Install manually from NVIDIA
-
-# Transformers for tokenizers and model handling
+# Transformers for tokenizers
 transformers>=4.35.0
-accelerate>=0.24.0
 
-# Embeddings (Lightweight for Jetson)
+# Embeddings (Lightweight)
 sentence-transformers>=2.2.0
 
-# FAISS for fast vector search (CPU version works well on Jetson)
+# FAISS for fast vector search
 faiss-cpu>=1.7.4
 
-# OpenAI SDK (for compatibility layer)
+# OpenAI SDK (for Ollama compatibility)
 openai>=1.3.0
+
+# HTTP requests (for Ollama validation)
+requests>=2.31.0
 
 # Web search
 duckduckgo-search>=4.0.0
@@ -27,9 +25,5 @@ duckduckgo-search>=4.0.0
 # Serial communication for robot control
 pyserial>=3.5
 
-# Database
-# SQLite3 is built into Python, no installation needed
-
-# Optional but recommended for development
-# jupyter  # For interactive development
-# ipython  # Better REPL
+# Testing
+pytest>=7.4.0

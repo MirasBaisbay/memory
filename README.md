@@ -9,9 +9,7 @@
 
 ## Key Features
 
-* **Dual Backend Support**:
-    * **Ollama** (Recommended): Simple setup, excellent tool calling with Qwen3-4B
-    * **TensorRT-LLM**: Optional for maximum performance on Jetson Orin
+* **Ollama Backend**: Simple setup with Qwen3-4B for excellent tool calling
 * **Three-Tier Memory System**:
     * **Core Memory**: Persistent persona and user profile in context window (LLM-editable)
     * **Recall Memory**: FAISS-accelerated conversation history with semantic search
@@ -53,22 +51,13 @@ python walle_enhanced.py
 
 That's it! The system uses Ollama with Qwen3-4B by default.
 
-## Alternative: TensorRT-LLM (Jetson Orin Only)
-
-For maximum performance on Jetson Orin devices, see [JETSON_SETUP.md](JETSON_SETUP.md).
-
-```python
-# In config.py, change:
-BACKEND = "tensorrt-llm"
-```
-
 ## Configuration
 
 Edit `config.py` to customize:
 
-### Backend Selection
+### Ollama Settings
 ```python
-BACKEND = "ollama"           # "ollama" (recommended) or "tensorrt-llm"
+OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "qwen3:4b"    # Best tool calling among small models
 ```
 
@@ -155,8 +144,7 @@ memory/
 ├── knowledge_tools.py     # Internet search
 ├── personality_system.py  # Personality traits
 ├── heartbeat.py           # Multi-step reasoning
-├── tensorrt_client.py     # TensorRT-LLM client (optional)
-├── prepare_model.py       # Model preparation (TensorRT)
+├── test_memory_system.py  # Comprehensive test suite
 └── requirements.txt       # Dependencies
 ```
 
@@ -168,7 +156,31 @@ View stored memories:
 python memory_inspector.py
 ```
 
-## System Tests
+## Testing
+
+### Run Automated Tests
+
+```bash
+# Run with pytest (verbose)
+pytest test_memory_system.py -v
+
+# Or run directly
+python test_memory_system.py
+```
+
+### Test Coverage
+
+| Test Class | Tests | Coverage |
+|------------|-------|----------|
+| `TestCoreMemory` | 9 | Blocks, append, replace, limits, persistence |
+| `TestRecallMemory` | 6 | Insert, semantic search, FAISS integration |
+| `TestArchivalMemory` | 6 | Facts, categories, importance decay |
+| `TestFAISSManager` | 4 | Add, search, save/load, performance |
+| `TestToolCalling` | 5 | Memory tools, schema format |
+| `TestSearchPerformance` | 1 | FAISS vs naive benchmark |
+| `TestIntegration` | 2 | Full workflow, persistence |
+
+### Manual Tests
 
 1. **Memory Write Test**:
    - Start: `python walle_enhanced.py`
@@ -179,11 +191,6 @@ python memory_inspector.py
 2. **Tool Use Test**:
    - Ask: "What's the weather in Tokyo?"
    - Should trigger: `consult_internet_for_facts`
-
-3. **FAISS Search Test**:
-   - Have a few conversations
-   - Ask about something mentioned earlier
-   - Should retrieve relevant context quickly
 
 ## Rollback Options
 
@@ -198,20 +205,14 @@ USE_FAISS = False
 # Disable importance decay
 IMPORTANCE_RECENCY_WEIGHT = 0.0
 
-# Switch to TensorRT-LLM
-BACKEND = "tensorrt-llm"
+# Change model
+OLLAMA_MODEL = "llama3.2:3b"  # Or any other Ollama model
 ```
-
-## Documentation
-
-- **[JETSON_SETUP.md](JETSON_SETUP.md)** - TensorRT-LLM deployment on Jetson Orin
-- **[TECHNICAL_MANUAL.md](TECHNICAL_MANUAL.md)** - Architecture details
-- **[ARCHITECTURE_ANALYSIS.md](ARCHITECTURE_ANALYSIS.md)** - Design decisions and comparisons
 
 ## Requirements
 
 - Python 3.10+
-- Ollama (recommended) or TensorRT-LLM (Jetson Orin)
+- Ollama with Qwen3-4B model
 - ~4-5GB RAM for Qwen3-4B
 - Optional: Arduino/Serial robot for hardware control
 
